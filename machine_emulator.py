@@ -38,7 +38,7 @@ MQTT_TOPIC_URL = 'one_dollar_breath/url'
 MQTT_TOPIC_GETURL = 'one_dollar_breath/geturl'
 
 # In memory state tracking existing NFTs that were already minted
-STATE = {}
+state = {}
 
 
 def gen_breath_sample():
@@ -87,7 +87,7 @@ def connect_callback(client, userdata, flags, reasonCode):
 def json_publisher(client):
     """Simulates breathMachine breathing in"""
     logger = f"{BANNER}[PUBLISHER][{TOPICS['json']}]"
-    global STATE
+    global state
     try:
         # Retrieves the latest breath generated and checks if it was successful
         if len(STATE.keys()) and (not STATE[list(STATE)[-1]]["sent"] or not STATE[list(STATE)[-1]]["nft"]):
@@ -109,8 +109,10 @@ def json_publisher(client):
         if reasonCode == 0:
             STATE[breath["hash"]]["sent"] = True
             print(f"[.]{logger} Successfully sent breath on topic {TOPICS['json']}")
+            return STATE[breath["hash"]]
         else:
             print(f"[E]{logger} Failed to send breath on topic {TOPICS['json']}")
+            raise Exception("Failed to post.")
 
     except BaseException as err:
         print(f"[E]{logger} Unexpected {err=}, {type(err)=}")
@@ -119,7 +121,7 @@ def json_publisher(client):
 def get_url_publisher(client):
     """Simulates breathMachine user requesting url for a certain json"""
     logger = f"{BANNER}[PUBLISHER][{TOPICS['get_url']}]"
-    global STATE
+    global state
     try:
         # Retrieves the latest breath generated that already has a NFT URL.
         if len(STATE.keys()) and (STATE[list(STATE)[-1]]["sent"] and STATE[list(STATE)[-1]]["nft"] and
@@ -132,8 +134,10 @@ def get_url_publisher(client):
             if reasonCode == 0:
                 STATE[breath_sample_hash]["requested"] = True
                 print(f"[.]{logger} Successfully sent to topic {TOPICS['get_url']}")
+                return STATE[breath_sample_hash]
             else:
                 print(f"[E]{logger} Failed to request URL on topic {TOPICS['get_url']}")
+                raise Exception("Failed to retrieve")
 
     except BaseException as err:
         print(f"[E]{logger} Unexpected {err=}, {type(err)=}")
@@ -142,13 +146,14 @@ def get_url_publisher(client):
 def on_message_callback(client, userdata, message):
     """Message handler"""
     logger = f"{BANNER}[MSG HANDLER][{message.topic}]"
-    global STATE
+    global state
     try:
         # URL RESPONSE HANDLER
         if message.topic == TOPICS['url']:
             decoded_url_msg = json.loads(message.payload.decode("utf-8", "ignore"))
             print(f"[.]{logger} Successfully processed NFT URL for {decoded_url_msg['hash']}")
             print(f"[.]{logger} NFT URL: {decoded_url_msg['url']}")
+            print(f"[.]{logger} Breath data: {STATE[decoded_url_msg['hash']]}")
             STATE[decoded_url_msg["hash"]]["nft"] = True
             if STATE[decoded_url_msg["hash"]]["requested"]:
                 # Deletes state to save memory

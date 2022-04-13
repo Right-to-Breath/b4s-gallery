@@ -11,7 +11,6 @@ MQTT Consumer for breath messages
 TODO: MongoDB connection
 """
 import json
-import os.path
 import urllib.parse
 
 import paho.mqtt.client as mqtt
@@ -32,7 +31,7 @@ TOPICS = {
 }
 
 # In memory state tracking existing NFTs that were already minted
-STATE = {}
+state = {}
 
 token_count = 0
 
@@ -58,11 +57,11 @@ def on_message_callback(client, userdata, message):
         # GET_URL REQUEST HANDLER
         if message.topic == TOPICS["get_url"]:
             breath_hash = message.payload.decode("utf-8", "ignore")
-            breath = STATE[breath_hash]
-            response = gen_url_response(breath["data"])
+            breath = state[breath_hash]
+            response = __gen_url_response(breath["data"])
             reasonCode, mid = client.publish(TOPICS['url'], json.dumps(response))
             if reasonCode == 0:
-                STATE[breath["data"]["hash"]]["requested"] = True
+                state[breath["data"]["hash"]]["requested"] = True
                 print(f"[.]{logger} Successfully sent NFT URL on topic {TOPICS['url']}")
             else:
                 print(f"[E]{logger} Failed to send NFT URL on topic {TOPICS['url']}")
@@ -72,17 +71,17 @@ def on_message_callback(client, userdata, message):
         elif message.topic == TOPICS['json']:
             breath = json.loads(message.payload.decode("utf-8", "ignore"))
             print(f"[.]{logger} Received breath {breath['hash']} on topic {TOPICS['json']}")
-            STATE[breath["hash"]] = {
+            state[breath["hash"]] = {
                 "data": breath,
                 "sent": True,
                 "nft": False,
                 "requested": False,
             }
-            response = gen_url_response(breath)
+            response = __gen_url_response(breath)
             reasonCode, mid = client.publish(TOPICS['url'], json.dumps(response))
             if reasonCode == 0:
                 token_count += 1
-                STATE[breath["hash"]]["nft"] = True
+                state[breath["hash"]]["nft"] = True
                 print(f"[.]{logger} Successfully sent NFT URL on topic {TOPICS['url']}")
             else:
                 print(f"[E]{logger} Failed to send NFT URL on topic {TOPICS['url']}")
@@ -91,7 +90,7 @@ def on_message_callback(client, userdata, message):
         print(f"[E]{logger} Unexpected {err=}, {type(err)=}")
 
 
-def gen_url_response(breath):
+def __gen_url_response(breath):
     global token_count
     params = urllib.parse.urlencode({
         "hs": breath["hash"],
