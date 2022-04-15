@@ -3,13 +3,10 @@
 module.exports = function (canvasWidth, canvasHeight) {
     let module = {};
 
-    let seed, posX, posY, stepSize;
-
-    module.seed = seed;
-    module.posX = posX;
-    module.posY = posY;
-    module.stepSize = stepSize;
-
+    module.seed = 0;
+    module.posX = 0;
+    module.posY = 0;
+    module.stepSize = 15;
 
     // Deterministic pseudo random generator based on a stateful initial state called 'seed'.
     // Returns a new number every time it is called.

@@ -3,7 +3,7 @@ import traceback
 
 import paho.mqtt.client as mqtt
 from fastapi import FastAPI, HTTPException
-from simulator import CREDENTIALS, MQTT_BROKER, TOPICS, connect_callback, json_publisher, get_url_publisher
+from lib.simulator import CREDENTIALS, MQTT_BROKER, TOPICS, connect_callback, json_publisher, get_url_publisher
 
 
 # In memory state tracking existing NFTs that were already minted

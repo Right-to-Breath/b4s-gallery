@@ -10,12 +10,15 @@ MQTT Consumer for breath messages
 - Maintain in-memory and store in disk the state for each breath.
 TODO: MongoDB connection
 """
+import os
 import json
 import shlex
 import subprocess
 import urllib.parse
 
 import paho.mqtt.client as mqtt
+
+from lib import storage, thread
 
 BANNER = "[CONSUMER]"
 MQTT_BROKER = 'one-dollar-breath.cloud.shiftr.io', 1883
@@ -39,12 +42,7 @@ COLLECTION = "PH_8747"
 PATH_TO_COLLECTION = f"./collections/{COLLECTION}/"
 NODE_PATH = "/Users/paul/.nvm/versions/node/v16.14.2/bin/node"
 IG_PATH = "./scripts"
-IG_CMD = "{} generate.js -b ../collections/PH_8747/breath/{}.json -w 3000 -h 3000 -p ../collections/PH_8747/images/{}"
-
-# In memory state tracking existing NFTs that were already minted
-state = {}
-
-token_count = 0
+IG_CMD = "{} generate.js -b ../collections/PH_8747/breath/{}.json -w 2000 -h 2000 -p ../collections/PH_8747/images/{}"
 
 
 def connect_callback(client, userdata, flags, reasonCode):
@@ -65,72 +63,66 @@ def connect_callback(client, userdata, flags, reasonCode):
 def on_message_callback(client, userdata, message):
     """Message handler"""
     logger = f"{BANNER}[MSG HANDLER][{message.topic}]"
-    global token_count
     try:
+        #
         # GET_URL REQUEST HANDLER
         if message.topic == TOPICS["get_url"]:
             breath_hash = message.payload.decode("utf-8", "ignore")
-            breath = state[breath_hash]
-            response = __gen_url_response(breath["data"])
+            _state = storage.state()
+            response = __gen_url_response(_state[breath_hash]["data"])
             reason_code, mid = client.publish(TOPICS['url'], json.dumps(response))
             if reason_code == 0:
-                state[breath["data"]["hash"]]["requested"] = True
+                _state[breath_hash]["requested"] = True
+                storage.sync(_state)
                 print(f"[.]{logger} Successfully sent NFT URL on topic {TOPICS['url']}")
             else:
                 print(f"[E]{logger} Failed to send NFT URL on topic {TOPICS['url']}")
+        #
         # JSON REQUEST HANDLER
         elif message.topic == TOPICS['json']:
             breath = json.loads(message.payload.decode("utf-8", "ignore"))
             print(f"[.]{logger} Received breath {breath['hash']} on topic {TOPICS['json']}")
-            state[breath["hash"]] = {
+            _state = storage.state()
+            _state[breath["hash"]] = {
                 "data": breath,
                 "sent": True,
                 "nft": False,
                 "image": False,
-                "id": token_count + 1
+                "id": _state["count"] + 1
             }
-            response = __gen_url_response(breath)
+            response = __gen_url_response(breath, _state["count"] + 1)
             reason_code, mid = client.publish(TOPICS['url'], json.dumps(response))
             if reason_code == 0:
-                token_count += 1
-                state[breath["hash"]]["nft"] = True
+                _state["count"] += 1
+                _state[breath["hash"]]["nft"] = True
+                storage.sync(_state)
                 # WRITE JSON FILE WITH BREATH DATA
-                with open(f'{PATH_TO_COLLECTION}/breath/{token_count}.json', 'w', encoding='utf-8') as f:
-                    json.dump(state[breath["hash"]], f, ensure_ascii=False, indent=4)
+                thread.async_write_json(fp=f'{PATH_TO_COLLECTION}/breath/{_state["count"]}.json',
+                                        data=_state[breath["hash"]],
+                                        encoding='utf-8')
                 # TODO: Create Metadata file with new traits
-                print(f"[.]{logger} Successfully sent NFT URL on topic {TOPICS['url']}")
                 # SEND NFT TO BE GENERATED
-                reason_code2, mid = client.publish(TOPICS['rola'], json.dumps(state[breath["hash"]]))
+                reason_code2, mid = client.publish(TOPICS['rola'], json.dumps(_state[breath["hash"]]))
                 if reason_code2 == 0:
                     print(f"[.]{logger} Successfully sent NFT on topic {TOPICS['rola']}")
                 else:
                     print(f"[E]{logger} Failed to send NFT on topic {TOPICS['rola']}")
             else:
                 print(f"[E]{logger} Failed to send NFT URL on topic {TOPICS['url']}")
+        #
         # ROLA REQUEST HANDLER
         elif message.topic == TOPICS['rola']:
             breath = json.loads(message.payload.decode("utf-8", "ignore"))
-            print(breath)
             cmds = shlex.split(IG_CMD.format(NODE_PATH, breath["id"], breath["id"]))
-            # TODO: Make it async as it is locking the calls...
-            p = subprocess.run(cmds, cwd=IG_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                               start_new_session=True)
-            print(p.stdout)
-            p_res = json.loads(p.stdout)
-            if p_res["success"]:
-                data = state[breath["data"]["hash"]]
-                data["image"] = True
-                with open(f'{PATH_TO_COLLECTION}/breath/{breath["id"]}.json', 'w', encoding='utf-8') as f:
-                    json.dump(data, f, ensure_ascii=False, indent=4)
-            else:
-                print(f"[E]{logger} Error processing image and metadata. Error: {p_res['error']}")
+            thread.async_subprocess(cmds=cmds, callback=__image_gen_cb, cb_kwargs={"b_hash": breath["data"]["hash"]},
+                                    cwd=IG_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    start_new_session=True)
 
     except BaseException as err:
         print(f"[E]{logger} Unexpected {err=}, {type(err)=}")
 
 
-def __gen_url_response(breath):
-    global token_count
+def __gen_url_response(breath, token_count):
     params = urllib.parse.urlencode({
         "cid": COLLECTION,
         "tid": token_count,
@@ -141,6 +133,16 @@ def __gen_url_response(breath):
         "url": url
     }
     return response
+
+
+def __image_gen_cb(image_gen_res, b_hash):
+    p_res = json.loads(image_gen_res)
+    if p_res["success"]:
+        _state = storage.state()
+        _state[b_hash]["image"] = True
+        storage.sync(_state)
+    else:
+        print(f"[E] Error processing image and metadata. Error: {p_res['error']}")
 
 
 if __name__ == '__main__':

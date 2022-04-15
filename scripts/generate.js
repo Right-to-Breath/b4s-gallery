@@ -54,11 +54,6 @@ const alphabet = ".¨˙•:";
 // Please use long & lat to choose one special character
 const alphabet_special = "꙳꙰●ᶧ▪҉҈֍∆∞◊○ꝏꝍ٥□ꙮ▪꙲ꚚꝊ°*+";
 
-// CO-DEFINES UNIQUE PATTERN (shuffels the deck to draw cards)
-let seed = 1;
-// I think this is broken with RFID?! though hash still works
-// please use breath.date_t instead of RFID anyways
-
 const BLACK = 'rgb(0,0,0)';
 const BLACKA = 'rgba(0,0,0, 0.1)';
 const WHITE = 'rgba(255,255,255, 0.1)';
@@ -121,9 +116,14 @@ if (CENTER === true) {
     posX = canvasWidth / 2;
     posY= canvasHeight / 2;
 } else {
-    posX = 0;
-    posY= 0;
+    posX = chaos.random_range(canvasWidth);
+    posY = chaos.random_range(canvasHeight);
 }
+
+// CO-DEFINES UNIQUE PATTERN (shuffels the deck to draw cards)
+let seed = Math.abs(breathData.data.rfid ^ breathData.data.hash);
+// I think this is broken with RFID?! though hash still works
+// please use breath.date_t instead of RFID anyways
 
 // Updates module vars
 chaos.seed = seed;
@@ -248,9 +248,9 @@ function sketch(p) {
         p.resetMatrix();
         stepSize = 15;
         chaos.stepSize = stepSize;
-        posX = 0;
+        posX = chaos.random_range(canvasWidth);
+        posY = chaos.random_range(canvasHeight);
         chaos.posX = posX;
-        posY = 0;
         chaos.posY = posY;
 
         // DRAWS eCO2 LINES - white lines on top
