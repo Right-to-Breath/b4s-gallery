@@ -73,6 +73,8 @@ def connect_callback(client, userdata, flags, reasonCode):
         print(f"[!]{logger} Connected.")
         client.subscribe(TOPICS['json'])
         print(f"[!]{logger}[{TOPICS['json']}] Subscribed.")
+        client.subscribe(TOPICS['url'])
+        print(f"[!]{logger}[{TOPICS['url']}] Subscribed.")
     else:
         print(f"[E]{logger} Failed to connect.")
         raise Exception("Failed to connect to MQTT server.")
@@ -100,12 +102,9 @@ def get_url_publisher(client, state, breath_sample_hash):
     """Simulates breathMachine user requesting url for a certain json"""
     logger = f"{BANNER}[PUBLISHER][{TOPICS['get_url']}]"
     msg = breath_sample_hash
-    print(f"[.]{logger} Trying to request URL for breath {breath_sample_hash} on topic {TOPICS['get_url']}")
     reason_code, mid = client.publish(TOPICS['get_url'], msg)
     if reason_code == 0:
         state[breath_sample_hash]["requested"] = True
-        print(f"[.]{logger} Successfully sent to topic {TOPICS['get_url']}")
         return state[breath_sample_hash]
     else:
-        print(f"[E]{logger} Failed to request URL on topic {TOPICS['get_url']}")
         raise Exception("Failed to retrieve url from Server.")
