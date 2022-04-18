@@ -2,26 +2,23 @@ import os
 import pickle
 
 
-STATE_PATH = "./storage.pkl"
+def state(fp: str):
+    if os.path.getsize(fp) > 0:
+        _state = pickle.load(open(fp, 'rb'))
+        return _state
+    else:
+        return {}
 
 
-def state():
-    _state = pickle.load(open(STATE_PATH, 'rb'))
-    return _state
+def sync(fp: str, _state: dict):
+    pickle.dump(_state, open(fp, 'wb'))
 
 
-def sync(_state):
-    pickle.dump(_state, open(STATE_PATH, 'wb'))
-
-
-def __init():
-    if not os.path.exists(STATE_PATH):
-        dirs, file = os.path.split(STATE_PATH)
+def init(fp: str):
+    if not os.path.exists(fp):
+        dirs, file = os.path.split(fp)
         if len(dirs) > 1 and not os.path.exists(dirs):
             os.makedirs(dirs)
         _state = {"count": 0}
-        sync(_state)
-    state()
-
-
-__init()
+        sync(fp, _state)
+    state(fp)
