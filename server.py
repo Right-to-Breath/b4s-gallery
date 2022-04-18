@@ -8,9 +8,9 @@ MQTT Consumer for breath messages
 - Receive breath data with fail-safe and retry
 - Send NFT urls for existing NFTs and NFTs that were just minted
 - Maintain in-memory and store in disk the state for each breath.
-TODO: MongoDB connection
 """
 import json
+import logging
 import shlex
 import subprocess
 import urllib.parse
@@ -39,13 +39,14 @@ TOPICS = {
 DOMAIN = "art.breath4.sale"
 COLLECTION = "PH_8747"
 
-PATH_TO_COLLECTION = f"./collections/{COLLECTION}/"
+PATH_TO_COLLECTION = f"/Users/jeanpaulruizdepraz/Documents/software/sni/breath_py/collections/{COLLECTION}"
 NODE_PATH = "/Users/paul/.nvm/versions/node/v16.14.2/bin/node"
-IG_PATH = "./scripts"
-IG_CMD = "{} generate.js -b ../collections/PH_8747/breath/{}.json -w 2000 -h 2000 -p ../collections/PH_8747/images/{}"
+IG_PATH = "./scripts/image"
+IG_CMD = "{} generate.js -b {}/breath/{}.json -w 2000 -h 2000 -p {}/images/{}"
 
 STATE_PATH = "./state.pkl"
-storage.init(STATE_PATH)
+storage.init(STATE_PATH, {"count": -1})
+
 
 METADATA_DOMAIN = 'api.breath4.sale'
 METADATA_FILE = {
@@ -67,25 +68,28 @@ METADATA_FILE = {
     },
   ]
 }
+# Enable logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
+)
+
+logger = logging.getLogger(__name__)
 
 
 def connect_callback(client, userdata, flags, reasonCode):
     """Connection handler"""
-    logger = f"{BANNER}[MQTT CLIENT]"
+    header = f"{BANNER}[MQTT CLIENT]"
     if not reasonCode:
         client.subscribe(TOPICS['get_url'])
-        print(f"[!]{logger}[{TOPICS['get_url']}] Subscribed.")
         client.subscribe(TOPICS['json'])
-        print(f"[!]{logger}[{TOPICS['json']}] Subscribed.")
         client.subscribe(TOPICS['image'])
-        print(f"[!]{logger}[{TOPICS['image']}] Subscribed.")
     else:
-        print(f"[E]{logger} Failed to connect.")
+        logger.error(f"[E]{header} Failed to connect.")
 
 
 def on_message_callback(client, userdata, message):
     """Message handler"""
-    logger = f"{BANNER}[{message.topic}]"
+    header = f"{BANNER}[{message.topic}]"
 
     def __image_gen_cb(image_gen_res, b_hash):
         p_res = json.loads(image_gen_res)
@@ -94,7 +98,7 @@ def on_message_callback(client, userdata, message):
             _state[b_hash]["image"] = True
             storage.sync(STATE_PATH, _state)
         else:
-            client.publish(TOPICS['error'], f"[E]{logger} Error processing image and metadata. Error: {p_res['error']}")
+            client.publish(TOPICS['error'], f"[E]{header} Error processing image and metadata. Error: {p_res['error']}")
     try:
         #
         # GET_URL REQUEST HANDLER
@@ -107,7 +111,7 @@ def on_message_callback(client, userdata, message):
                 _state[breath_hash]["requested"] = True
                 storage.sync(STATE_PATH, _state)
             else:
-                client.publish(TOPICS['error'], f"[E]{logger} Failed to send NFT URL on topic {TOPICS['url']}")
+                client.publish(TOPICS['error'], f"[E]{header} Failed to send NFT URL on topic {TOPICS['url']}")
         #
         # JSON REQUEST HANDLER
         elif message.topic == TOPICS['json']:
@@ -138,20 +142,21 @@ def on_message_callback(client, userdata, message):
                 # SEND NFT TO BE GENERATED
                 reason_code2, mid = client.publish(TOPICS['image'], json.dumps(_state[breath["hash"]]))
                 if not reason_code2 == 0:
-                    client.publish(TOPICS['error'], f"[E]{logger} Failed to send NFT on topic {TOPICS['image']}")
+                    client.publish(TOPICS['error'], f"[E]{header} Failed to send NFT on topic {TOPICS['image']}")
             else:
-                client.publish(TOPICS['error'], f"[E]{logger} Failed to send NFT URL on topic {TOPICS['url']}")
+                client.publish(TOPICS['error'], f"[E]{header} Failed to send NFT URL on topic {TOPICS['url']}")
         #
         # IMAGE REQUEST HANDLER
         elif message.topic == TOPICS['image']:
             breath = json.loads(message.payload.decode("utf-8", "ignore"))
-            cmds = shlex.split(IG_CMD.format(NODE_PATH, breath["id"], breath["id"]))
+            cmds = shlex.split(IG_CMD.format(NODE_PATH, PATH_TO_COLLECTION, breath["id"],
+                                             PATH_TO_COLLECTION, breath["id"]))
             thread.async_subprocess(cmds=cmds, callback=__image_gen_cb, cb_kwargs={"b_hash": breath["data"]["hash"]},
                                     cwd=IG_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                     start_new_session=True)
 
-    except BaseException as err:
-        client.publish(TOPICS['error'], f"[E]{logger} Unexpected {err=}, {type(err)=}")
+    except Exception as err:
+        client.publish(TOPICS['error'], f"[E]{header} Unexpected {err=}, {type(err)=}")
 
 
 def __gen_url_response(breath, token_count):

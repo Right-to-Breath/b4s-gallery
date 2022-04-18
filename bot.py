@@ -16,10 +16,10 @@ from server import CREDENTIALS, MQTT_BROKER, TOPICS, STATE_PATH
 storage.init(STATE_PATH)
 
 ERROR_STORAGE = "./error_users.pkl"
-storage.init(ERROR_STORAGE)
+storage.init(ERROR_STORAGE, {})
 
 URL_STORAGE = "./url_users.pkl"
-storage.init(URL_STORAGE)
+storage.init(URL_STORAGE, {})
 
 TELEGRAM_BOT_TOKEN = "5319524868:AAHf1EsmAlulnf23h_bSWoiXVb7O0YZLt4k"
 # Enable logging
@@ -126,7 +126,6 @@ def on_message(_client: Client, userdata, msg: MQTTMessage):
             broadcast(msg.payload.decode(), user_list=list(error_users.keys()))
         elif msg.topic == TOPICS['url']:
             url_users = storage.state(URL_STORAGE)
-            logger.info(url_users)
             url = json.loads(msg.payload.decode())
             uid = url_users[url['hash']]
             broadcast(url['url'], user_list=[uid])
