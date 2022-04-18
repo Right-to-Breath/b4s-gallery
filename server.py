@@ -105,7 +105,7 @@ def on_message_callback(client, userdata, message):
         if message.topic == TOPICS["get_url"]:
             breath_hash = message.payload.decode("utf-8", "ignore")
             _state = storage.state(STATE_PATH)
-            response = __gen_url_response(_state[breath_hash]["data"], _state['count'])
+            response = __gen_url_response(_state[breath_hash]["data"], _state['id'])
             reason_code, mid = client.publish(TOPICS['url'], json.dumps(response))
             if reason_code == 0:
                 _state[breath_hash]["requested"] = True
@@ -128,7 +128,7 @@ def on_message_callback(client, userdata, message):
             reason_code, mid = client.publish(TOPICS['url'], json.dumps(response))
             if reason_code == 0:
                 _state["count"] += 1
-                _state[breath["hash"]]["nft"] = True
+                _state[breath["hash"]]["nft"] = response
                 storage.sync(STATE_PATH, _state)
                 # WRITE JSON FILE WITH BREATH DATA
                 thread.async_write_json(fp=f'{PATH_TO_COLLECTION}/breath/{_state["count"]}.json',
