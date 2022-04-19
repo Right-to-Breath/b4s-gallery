@@ -14,6 +14,7 @@ import logging
 import shlex
 import subprocess
 import urllib.parse
+from copy import deepcopy
 
 import paho.mqtt.client as mqtt
 
@@ -38,11 +39,17 @@ TOPICS = {
 
 DOMAIN = "art.breath4.sale"
 COLLECTION = "PH_8747"
-
-PATH_TO_COLLECTION = f"/Users/jeanpaulruizdepraz/Documents/software/sni/breath_py/collections/{COLLECTION}"
-NODE_PATH = "/Users/paul/.nvm/versions/node/v16.14.2/bin/node"
-IG_PATH = "./scripts/image"
-IG_CMD = "{} generate.js -b {}/breath/{}.json -w 2000 -h 2000 -p {}/images/{}"
+DEV = True
+if DEV:
+    PATH_TO_COLLECTION = f"/Users/jeanpaulruizdepraz/Documents/software/sni/breath_py/collections/{COLLECTION}"
+    NODE_PATH = "/Users/paul/.nvm/versions/node/v16.14.2/bin/node"
+    IG_PATH = "./scripts/image"
+    IG_CMD = "{} generate.js -b {}/breath/{}.json -w 2000 -h 2000 -p {}/images/{}"
+else:
+    PATH_TO_COLLECTION = f"/home/admin/nft-collection-api/collections/{COLLECTION}"
+    NODE_PATH = "/home/admin/.nvm/versions/node/v16.14.2/bin/node"
+    IG_PATH = "/home/admin/breath_machine-master/scripts/image"
+    IG_CMD = "{} generate.js -b {}/breath/{}.json -w 2000 -h 2000 -p {}/images/{}"
 
 STATE_PATH = "./state.pkl"
 storage.init(STATE_PATH, {"count": -1})
@@ -94,9 +101,9 @@ def on_message_callback(client, userdata, message):
     def __image_gen_cb(image_gen_res, b_hash):
         p_res = json.loads(image_gen_res)
         if p_res["success"]:
-            _state = storage.state(STATE_PATH)
-            _state[b_hash]["image"] = True
-            storage.sync(STATE_PATH, _state)
+            __state = storage.state(STATE_PATH)
+            __state[b_hash]["image"] = True
+            storage.sync(STATE_PATH, __state)
         else:
             client.publish(TOPICS['error'], f"[E]{header} Error processing image and metadata. Error: {p_res['error']}")
     try:
@@ -104,12 +111,12 @@ def on_message_callback(client, userdata, message):
         # GET_URL REQUEST HANDLER
         if message.topic == TOPICS["get_url"]:
             breath_hash = message.payload.decode("utf-8", "ignore")
-            _state = storage.state(STATE_PATH)
-            response = __gen_url_response(_state[breath_hash]["data"], _state['id'])
+            u_state = storage.state(STATE_PATH)
+            response = __gen_url_response(u_state[breath_hash]["data"], u_state['id'])
             reason_code, mid = client.publish(TOPICS['url'], json.dumps(response))
             if reason_code == 0:
-                _state[breath_hash]["requested"] = True
-                storage.sync(STATE_PATH, _state)
+                u_state[breath_hash]["requested"] = True
+                storage.sync(STATE_PATH, u_state)
             else:
                 client.publish(TOPICS['error'], f"[E]{header} Failed to send NFT URL on topic {TOPICS['url']}")
         #
@@ -134,7 +141,7 @@ def on_message_callback(client, userdata, message):
                 thread.async_write_json(fp=f'{PATH_TO_COLLECTION}/breath/{_state["count"]}.json',
                                         data=_state[breath["hash"]], encoding='utf-8')
                 # WRITE METADATA FILE
-                metadata = METADATA_FILE
+                metadata = deepcopy(METADATA_FILE)
                 metadata['name'] = metadata['name'].format(_state["count"])
                 metadata['image'] = metadata['image'].format(METADATA_DOMAIN, COLLECTION, _state["count"])
                 thread.async_write_json(fp=f'{PATH_TO_COLLECTION}/metadata/{_state["count"]}',
@@ -164,7 +171,7 @@ def __gen_url_response(breath, token_count):
         "cid": COLLECTION,
         "tid": token_count,
     })
-    url = f"https://{DOMAIN}/#?%s" % params
+    url = f"https://{DOMAIN}/?%s" % params
     response = {
         "hash": breath["hash"],
         "url": url

@@ -82,8 +82,6 @@ def echo(update: Update, context: CallbackContext) -> None:
             update.message.reply_text("Breathing into B4S machine.")
             _state = storage.state(STATE_PATH)
             breath_state = json_publisher(client=mqtt_client, state=_state)
-            # _state[breath_state["data"]["hash"]] = breath_state
-            # storage.sync(STATE_PATH, _state)
             url_users = storage.state(URL_STORAGE)
             url_users[breath_state["data"]["hash"]] = update.message.from_user.id
             storage.sync(URL_STORAGE, url_users)
