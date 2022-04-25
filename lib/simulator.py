@@ -12,34 +12,21 @@ MQTT Publisher that emulates the "BreathMachine"
 """
 import json
 import random
-import time
 import zlib
 
-from paho.mqtt import client as mqtt
+from env import TOPICS
 
 BANNER = "[SIMULATOR]"
-
-MQTT_BROKER = 'one-dollar-breath.cloud.shiftr.io', 1883
-CREDENTIALS = 'one-dollar-breath', 'public'
-
-"""
-json - where the breath json arrives 
-url - awaits for the server to reply the NFT url
-get_url - request a url by sending the hash of the json
-"""
-TOPICS = {
-    'json': 'one_dollar_breath/json',
-    'url': 'one_dollar_breath/url',
-    'get_url': 'one_dollar_breath/geturl',
-}
 
 
 def gen_breath_sample():
     data_sample = {
         "rfid": random.randbytes(4).hex(),
        "date_t": "2022-27-03T19:26:57",
-        "lat": "42.36114",
-        "lon": "-71.05708",
+        "coord": {
+            "latitude": random.randrange(-90, 90),
+            "longitude": random.randrange(-180, 180),
+    },
        "ref1": {
             # random.normalvariate(mu, sigma)
            "CO2": random.randrange(300, 450), # 400 300-5000

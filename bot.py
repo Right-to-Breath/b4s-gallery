@@ -11,17 +11,13 @@ from telegram.error import BadRequest
 
 from lib import storage
 from lib.simulator import json_publisher
-from server import CREDENTIALS, MQTT_BROKER, TOPICS, STATE_PATH
+from env import TOPICS, MQTT_BROKER, CREDENTIALS, STATE_PATH, ERROR_STORAGE, URL_STORAGE, TELEGRAM_BOT_TOKEN
 
 storage.init(STATE_PATH)
-
-ERROR_STORAGE = "./error_users.pkl"
 storage.init(ERROR_STORAGE, {})
-
-URL_STORAGE = "./url_users.pkl"
 storage.init(URL_STORAGE, {})
 
-TELEGRAM_BOT_TOKEN = "5319524868:AAHf1EsmAlulnf23h_bSWoiXVb7O0YZLt4k"
+
 # Enable logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -30,7 +26,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 help_msg2 = "\n\nUse /register_me to receive server error messages or /unregister_me to stop." \
-           "\n\nSend me your `breath` or `sigh` and I will create a beautiful NFT out of it." \
+           "\n\nSend me a message with the word `breath` and I will create a beautiful NFT." \
             "\n\nI only understand text and commands for now."
 
 """ connect and configure MQTT """
@@ -127,7 +123,6 @@ def on_message(_client: Client, userdata, msg: MQTTMessage):
             url = json.loads(msg.payload.decode())
             uid = url_users[url['hash']]
             broadcast(url['url'], user_list=[uid])
-            broadcast(f"Breath hash: {url['hash']}", user_list=[uid])
             del url_users[url['hash']]
             storage.sync(URL_STORAGE, url_users)
 

@@ -18,63 +18,12 @@ from copy import deepcopy
 
 import paho.mqtt.client as mqtt
 
+from env import METADATA_FILE, TOPICS, BANNER, MQTT_BROKER, CREDENTIALS, METADATA_DOMAIN, DOMAIN, COLLECTION, \
+    PATH_TO_COLLECTION, NODE_PATH, IG_PATH, OS_PATH, IG_CMD, OS_CMD, STATE_PATH
 from lib import storage, thread
 
-BANNER = "[SERVER]"
-MQTT_BROKER = 'one-dollar-breath.cloud.shiftr.io', 1883
-CREDENTIALS = 'one-dollar-breath', 'public'
-
-"""
-json - where the breath json arrives 
-url - awaits for the server to reply the NFT url
-get_url - request a url by sending the hash of the json
-"""
-TOPICS = {
-    'json': 'one_dollar_breath/json',
-    'url': 'one_dollar_breath/url',
-    'get_url': 'one_dollar_breath/geturl',
-    'image': 'one_dollar_breath/image',
-    'error': 'one_dollar_breath/error',
-}
-
-DOMAIN = "art.breath4.sale"
-COLLECTION = "PH_8747"
-DEV = True
-if DEV:
-    PATH_TO_COLLECTION = f"/Users/jeanpaulruizdepraz/Documents/software/sni/breath_py/collections/{COLLECTION}"
-    NODE_PATH = "/Users/paul/.nvm/versions/node/v16.14.2/bin/node"
-    IG_PATH = "./scripts/image"
-    IG_CMD = "{} generate.js -b {}/breath/{}.json -w 2000 -h 2000 -p {}/images/{}"
-else:
-    PATH_TO_COLLECTION = f"/home/admin/nft-collection-api/collections/{COLLECTION}"
-    NODE_PATH = "/home/admin/.nvm/versions/node/v16.14.2/bin/node"
-    IG_PATH = "/home/admin/breath_machine-master/scripts/image"
-    IG_CMD = "{} generate.js -b {}/breath/{}.json -w 2000 -h 2000 -p {}/images/{}"
-
-STATE_PATH = "./state.pkl"
 storage.init(STATE_PATH, {"count": -1})
 
-
-METADATA_DOMAIN = 'api.breath4.sale'
-METADATA_FILE = {
-  "name": "Breath#{}",
-  "description": "A right, not a privilege.",
-  "image": "https://{}/{}/images/{}.png",
-  "attributes": [
-    {
-      "trait_type": "Warmth",
-      "value": "Hot"
-    },
-    {
-      "trait_type": "Alcohol",
-      "value": "Inebriated"
-    },
-    {
-      "trait_type": "Co2",
-      "value": "Planet killer"
-    },
-  ]
-}
 # Enable logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO
@@ -96,28 +45,54 @@ def connect_callback(client, userdata, flags, reasonCode):
 
 def on_message_callback(client, userdata, message):
     """Message handler"""
-    header = f"{BANNER}[{message.topic}]"
-
-    def __image_gen_cb(image_gen_res, b_hash):
-        p_res = json.loads(image_gen_res)
-        if p_res["success"]:
-            __state = storage.state(STATE_PATH)
-            __state[b_hash]["image"] = True
-            storage.sync(STATE_PATH, __state)
-        else:
-            client.publish(TOPICS['error'], f"[E]{header} Error processing image and metadata. Error: {p_res['error']}")
     try:
+        header = f"{BANNER}[{message.topic}]"
+
+        def __os_sell_cb(os_res, b_hash):
+            json_res = os_res.decode('utf-8').split('\n')[-2]
+            p_res = json.loads(json_res)
+            if p_res["success"]:
+                __state = storage.state(STATE_PATH)
+                __state[b_hash]["sold"] = True
+                storage.sync(STATE_PATH, __state)
+            else:
+                client.publish(TOPICS['error'], f"[E] Error selling NFT on OpenSea. Error: {p_res['message']}")
+
+        def __image_gen_cb(image_gen_res, b_hash):
+            p_res = json.loads(image_gen_res)
+            if p_res["success"]:
+                __state = storage.state(STATE_PATH)
+                __state[b_hash]["image"] = True
+                storage.sync(STATE_PATH, __state)
+                os_cmds = shlex.split(OS_CMD.format(NODE_PATH, breath["id"]))
+                thread.async_subprocess(cmds=os_cmds, callback=__os_sell_cb,
+                                        cb_kwargs={"b_hash": breath["data"]["hash"]},
+                                        cwd=OS_PATH, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                        start_new_session=True)
+            else:
+                client.publish(TOPICS['error'], f"[E] Error processing image and metadata. Error: {p_res['error']}")
         #
         # GET_URL REQUEST HANDLER
         if message.topic == TOPICS["get_url"]:
             breath_hash = message.payload.decode("utf-8", "ignore")
             u_state = storage.state(STATE_PATH)
-            response = __gen_url_response(u_state[breath_hash]["data"], u_state['id'])
-            reason_code, mid = client.publish(TOPICS['url'], json.dumps(response))
-            if reason_code == 0:
-                u_state[breath_hash]["requested"] = True
-                storage.sync(STATE_PATH, u_state)
+            if breath_hash in u_state:
+                params = urllib.parse.urlencode({
+                    "cid": COLLECTION,
+                    "tid": u_state['id'],
+                })
             else:
+                params = urllib.parse.urlencode({
+                    "cid": COLLECTION,
+                    "tid": -1,
+                })
+            url = f"https://{DOMAIN}/?%s" % params
+            response = {
+                "hash": breath_hash,
+                "url": url
+            }
+            reason_code, mid = client.publish(TOPICS['url'], json.dumps(response))
+            if not reason_code == 0:
                 client.publish(TOPICS['error'], f"[E]{header} Failed to send NFT URL on topic {TOPICS['url']}")
         #
         # JSON REQUEST HANDLER
@@ -126,7 +101,6 @@ def on_message_callback(client, userdata, message):
             _state = storage.state(STATE_PATH)
             _state[breath["hash"]] = {
                 "data": breath,
-                "sent": True,
                 "nft": False,
                 "image": False,
                 "id": _state["count"] + 1
@@ -144,6 +118,23 @@ def on_message_callback(client, userdata, message):
                 metadata = deepcopy(METADATA_FILE)
                 metadata['name'] = metadata['name'].format(_state["count"])
                 metadata['image'] = metadata['image'].format(METADATA_DOMAIN, COLLECTION, _state["count"])
+                __breath = _state[breath["hash"]]
+                AR165213 = metadata['attributes'][0]['value']
+                lat = int(__breath["data"]["coord"]["latitude"])
+                lon = int(__breath["data"]["coord"]["longitude"])
+                metadata['attributes'][0]['value'] = AR165213[abs(lat+lon) % len(AR165213)]
+                GO422134 = metadata['attributes'][1]['value']
+                co2 = int(__breath["data"]["breath"]["CO2"])
+                metadata['attributes'][1]['value'] = GO422134[co2 % len(GO422134)]
+                IW122409 = metadata['attributes'][2]['value']
+                temp = __breath["data"]["breath"]["temp"]
+                metadata['attributes'][2]['value'] = IW122409[abs(int(temp)) % len(IW122409)]
+                PM040103 = metadata['attributes'][3]['value']
+                ethanol = __breath["data"]["breath"]["ethanol"]
+                metadata['attributes'][3]['value'] = PM040103[abs(int(ethanol)) % len(PM040103)]
+                ATP10040 = metadata['attributes'][4]['value']
+                humidity = __breath["data"]["breath"]["hum"]
+                metadata['attributes'][4]['value'] = ATP10040[abs(int(humidity)) % len(ATP10040)]
                 thread.async_write_json(fp=f'{PATH_TO_COLLECTION}/metadata/{_state["count"]}',
                                         data=metadata, encoding='utf-8')
                 # SEND NFT TO BE GENERATED
@@ -186,3 +177,4 @@ if __name__ == '__main__':
     mqtt_client.on_message = on_message_callback
     mqtt_client.connect(*MQTT_BROKER)
     mqtt_client.loop_forever()
+
