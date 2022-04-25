@@ -1,0 +1,41 @@
+{
+  "name": "b4s-opensea",
+  "version": "1.0.0",
+  "description": "B4S OpenSea Auction Tool",
+  "main": "auciton.js",
+  "dependencies": {
+    "@0x/subproviders": "^6.6.5",
+    "opensea-js": "^3.0.2",
+    "web3": "^1.7.1",
+    "yargs": "^17.4.1"
+  },
+  "devDependencies": {
+    "@openzeppelin/contracts": "^4.4.0",
+    "hardhat-gas-reporter": "^1.0.8"
+  },
+  "scripts": {
+    "shuffle": "node scripts/shuffle.js",
+    "upload_images_gcs": "GOOGLE_APPLICATION_CREDENTIALS=gcs.json node scripts/upload_images_gcs.js",
+    "upload_images_ipfs": "node scripts/upload_images_ipfs.js",
+    "remove_none_traits": "node scripts/remove_none_traits.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FilosofiaCodigo/nft-collection-api.git"
+  },
+  "engines": {
+    "node": "^16"
+  },
+  "keywords": [
+    "nft",
+    "metadata",
+    "json",
+    "api"
+  ],
+  "author": "Filosofía Código",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/FilosofiaCodigo/nft-collection-api/issues"
+  },
+  "homepage": "https://github.com/FilosofiaCodigo/nft-collection-api#readme"
+}

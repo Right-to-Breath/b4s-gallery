@@ -1,0 +1,24 @@
+{
+  "name": "nft-collection-api",
+  "version": "1.0.0",
+  "description": "LoPhi+SNI NFT Generator",
+  "main": "generate.js",
+  "dependencies": {
+    "node-p5": "^1.0.4",
+    "yargs": "^17.4.1"
+  },
+  "scripts": {
+    "gen": "node generate.js"
+  },
+  "engines": {
+    "node": "^16"
+  },
+  "keywords": [
+    "nft",
+    "metadata",
+    "json",
+    "api"
+  ],
+  "author": "LoPhi+SNI",
+  "license": "LGPLv3"
+}
