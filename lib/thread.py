@@ -37,7 +37,7 @@ def async_write_file(fp, data, callback=None, cb_kwargs=None,  **kwargs):
         f.write(_data)
         f.close()
         if _callback:
-            _callback(**_cb_kwargs)
+            _callback(_fp, **_cb_kwargs)
         return
 
     thread = threading.Thread(target=builder, args=(fp, data, callback, cb_kwargs, kwargs))
@@ -56,7 +56,7 @@ def async_write_json(fp, data, callback=None, cb_kwargs=None, **kwargs):
         """
         json.dump(_data, open(_fp, 'w', **_kwargs))
         if _callback:
-            _callback(**_cb_kwargs)
+            _callback(_fp, **_cb_kwargs)
         return
 
     thread = threading.Thread(target=builder, args=(fp, data, callback, cb_kwargs, kwargs))

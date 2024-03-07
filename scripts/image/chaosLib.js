@@ -1,12 +1,14 @@
 
 
-module.exports = function (canvasWidth, canvasHeight) {
+module.exports = function (seed, canvasWidth, canvasHeight) {
     let module = {};
 
-    module.seed = 0;
+    module.seed = seed;
     module.posX = 0;
     module.posY = 0;
     module.stepSize = 15;
+    module.centerX = _random_range(canvasWidth/2) + canvasWidth/4;
+    module.centerY = _random_range(canvasWidth/2) + canvasWidth/4;
 
     // Deterministic pseudo random generator based on a stateful initial state called 'seed'.
     // Returns a new number every time it is called.
@@ -18,9 +20,8 @@ module.exports = function (canvasWidth, canvasHeight) {
     // Moves cursor back to the center of the canvas when it reaches outside of it.
     function _reset_pos_center() {
         if (module.posX > canvasWidth || module.posX < 0 || module.posY < 0 || module.posY > canvasHeight) {
-            module.posX = canvasWidth / 2;
-            module.posY = canvasHeight / 2;
-            console.log("center");
+            module.posX = module.centerX;
+            module.posY = module.centerY;
         }
     }
 
@@ -30,7 +31,6 @@ module.exports = function (canvasWidth, canvasHeight) {
         if (module.posX < 0) module.posX = canvasWidth;
         if (module.posY < 0) module.posY = canvasHeight;
         if (module.posY > canvasHeight) module.posY = 0;
-        // console.log("not center");
     }
 
     function _random_range(max_int) {
@@ -42,8 +42,8 @@ module.exports = function (canvasWidth, canvasHeight) {
 
     // Moves cursor to the canvas center
     module.recenter = function recenter() {
-        module.posX = canvasWidth / 2;
-        module.posY = canvasHeight / 2;
+        module.posX = module.centerX;
+        module.posY = module.centerY;
     };
 
     // Moves the cursor to a random position in the canvas
@@ -59,28 +59,13 @@ module.exports = function (canvasWidth, canvasHeight) {
 
     // Moves the cursor in a random direction a distance defined by stepSize
     // Takes multipliers in consideration
-    module.drunkard_walk_weighted = function drunkard_walk_weighted(stepSizeMultiX = 1, stepSizeMultiY = 1, center = false) {
+    module.drunkard_walk = function drunkard_walk(stepSizeMultiX = 1, stepSizeMultiY = 1, center = false) {
         let rnd = _random_range(3)
         if (rnd === 2) rnd = -1;
         module.posX += module.stepSize * rnd * stepSizeMultiX;
         rnd = _random_range(3)
         if (rnd === 2) rnd = -1;
         module.posY += module.stepSize * rnd * stepSizeMultiY;
-        if (center === true){
-            _reset_pos_center();
-        } else {
-            _reset_pos();
-        }
-    };
-
-    // Moves the cursor in a random direction a distance defined by stepSize
-    module.drunkard_walk = function drunkard_walk(center = false) {
-        let rnd = _random_range(3);
-        if (rnd === 2) rnd = -1;
-        module.posX += module.stepSize * rnd;
-        rnd = _random_range(3);
-        if (rnd === 2) rnd = -1;
-        module.posY += module.stepSize * rnd;
         if (center === true){
             _reset_pos_center();
         } else {
@@ -133,10 +118,12 @@ module.exports = function (canvasWidth, canvasHeight) {
     };
 
     // Converts the input's range into it's scale in a different range.
-    module.range_scale = function range_scale(input, input_start, input_end, output_start, output_end){
+       function _range_scale(input, input_start, input_end, output_start, output_end) {
         let slope = (output_end - output_start) / (input_end - input_start);
-        return Math.floor(output_start + slope * ((input) - input_start));
+	    let capped = Math.min(input_end, Math.max(input_start, input)) - input_start;
+	    return ~~(capped * slope + output_start);
     }
 
+    module.range_scale = _range_scale;
     return module;
 };

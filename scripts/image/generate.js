@@ -1,21 +1,11 @@
 #!/usr/bin/env node
 const argv = require('yargs/yargs')(process.argv.slice(2))
     .usage('Usage: $0 -w [num] -h [num]')
-    .demandOption(['b','w','h'])
+    .demandOption(['b', 'p'])
     .option('breathPath', {
         description: 'Path to Breath data json.',
         alias: 'b',
         type: 'string'
-    })
-    .option('width', {
-        description: 'Canvas Width in pixels',
-        alias: 'w',
-        type: 'number'
-    })
-    .option('height', {
-        description: 'Canvas Height in pixels',
-        alias: 'h',
-        type: 'number'
     })
     .option('imagePath', {
         description: 'Output filename with path. i.e. ./images/1',
@@ -34,6 +24,7 @@ try {
     breathFilePath = resolve(argv.breathPath);
     breathData = require(breathFilePath);
     imageFilePath = resolve(argv.imagePath);
+    p5.loadFont("./RobotoCondensed-Regular.ttf")
 } catch (err) {
     let message = {
         "success": false,
@@ -44,86 +35,62 @@ try {
 }
 
 // const breath = JSON.parse(argv.breath);
-const canvasWidth = argv.width;
-const canvasHeight = argv.height;
-
+const canvasWidth = 1500;
+const canvasHeight = 1500;
 
 // DEFINES eCO2 SPRAYS CHARACTERS USED - white stars & tail
 const alphabet = ".¨˙•:";
 // DEFINES eCO2 SPRAYS SPECIAL CHARACTER - white stars & tail
 // Please use long & lat to choose one special character
-const alphabet_special = "꙳꙰●ᶧ▪҉҈֍∆∞◊○ꝏꝍ٥□ꙮ▪꙲ꚚꝊ°*+";
+const alphabet_special = "∆∞◊+×>÷#ΠΔΓФo*ΞθI[/";
+const deltaTemp = breathData.data.breath.temp - breathData.data.ref1.temp;
+const breathTemp = breathData.data.breath.temp;
+const CO2 = breathData.data.breath.CO2;
+const ethanol = breathData.data.breath.ethanol;
+const h2 = breathData.data.breath.h2;
+const eCO2 = breathData.data.breath.eCO2;
+const humidity = breathData.data.breath.hum;
+const hash =  breathData.data.hash;
+const id =  breathData.id;
+const lat =  breathData.data.coord.latitude;
+const lon =  breathData.data.coord.longitude;
+const selected_char = alphabet_special[Math.floor(Math.abs(lat+lon) % alphabet_special.length)]
+// DEFINE STARTING DRAWING POSITION AND THUS IMG DIST
+const CENTER = Math.floor(humidity % 2) == true;
+// CO-DEFINES UNIQUE PATTERN (shuffels the deck to draw cards)
+let seed = Math.abs(breathData.data.rfid ^ hash);
+// console.log(deltaTemp, breathTemp, CO2, ethanol, h2, eCO2, humidity, seed, hash, CENTER, selected_char, Math.floor((lat+lon) % alphabet_special.length));
+const chaos = require('./chaosLib')(seed, canvasWidth, canvasHeight);
 
-const BLACK = 'rgb(0,0,0)';
-const BLACKA = 'rgba(0,0,0, 0.1)';
-const WHITE = 'rgba(255,255,255, 0.1)';
-const WHITE1 = 'rgba(255,255,255, 1)';
-const WHITE2 = 'rgba(255,255,255, 0.3)';
-const WHITE3 = 'rgba(255,255,255, 0.5)';
-const TRANSPARENT = 'rgba(255,255,255, 0)';
-
-const PURPLE = 'rgba(255,0,255, 0.2)';
-const ROSA = 'rgba(228,0,255, 0.4)';
-const PINK = 'rgba(247,048,136, 0.3)';
-const MAGENTA = 'rgba(150,075,250, 0.2)';
-const YELLOW = 'rgba(255,255,0, 0.25)';
-const PINK1 = 'rgba(252,55,231, 0.3)';
-const VIOLET1 = 'rgba(169,18,255, 0.3)';
-
-//DEFINES USED COLOR SET (01-06)
-// use temperature or determine color set
-//xx,00 - xx,17 use color set 01
-//xx,18 - xx,34 use color set 02
-//xx,35 - xx,51 use color set 03
-//xx,52 - xx,68 use color set 04
-//xx,69 - xx,85 use color set 05
-//xx,86 - xx,99 use color set 06
-
-//color set 01
-const BLUE_H2 = 'rgba(24,62,250, 0.4)'; // H2 CLOUD 006
-const CYAN_ETHANOL = 'rgba(0,255,255, 0.2)'; // ETHANOL CLOUD 001 & 002
-
-//color set 02
-const CYAN_H2  = 'rgba(0,255,255, 0.3.5)'; // H2 CLOUD 006
-const GREEN_ETHANOL = 'rgba(0,255,0, 0.25)'; // ETHANOL CLOUD 001 & 002
-
-//color set 03
-const GREEN_H2 = 'rgba(0,255,0, 0.4)'; // H2 CLOUD 006
-const YELLOW_ETHANOL = 'rgba(255,255,0, 0.25)'; // ETHANOL CLOUD 001 & 002
-
-//color set 04
-const YELLOW_H2 = 'rgba(255,255,0, 0.4)'; // H2 CLOUD 006
-const ORANGE_ETHANOL = 'rgba(255, 95, 31, 0.3)'; // ETHANOL CLOUD 001 & 002
-
-//color set 05
-const ORANGE_H2 = 'rgba(255, 95, 31, 0.4)' // H2 CLOUD 006
-const RED_ETHANOL = 'rgba(247, 33, 25, 0.4)'; // ETHANOL CLOUD 001 & 002
-
-//color set 06
-const RED_H2 = 'rgba(247, 33, 25, 0.4)'; // H2 CLOUD 006
-const BLUE_ETHANOL = 'rgba(24,62,250, 0.2)' // ETHANOL CLOUD 001 & 002
-
-const chaos = require('./chaosLib')(breathData, canvasWidth, canvasHeight);
+const {BLACK, WHITE, WHITE1, WHITE2, WHITE3, MS_01, MS_02, MS_03, MS_04 , MS_05, MS_06, TOP, BOT} =
+    require("./envvars")(chaos.random_range(deltaTemp^breathTemp), chaos.random_range(breathTemp));
 
 // DEFINES STEP SIZE (distance grid points (output:10-18)) basend on CO2 input
-let stepSize = chaos.range_scale(breathData.data.ref1.CO2, 400, 5000, 13, 17);
+let stepSize = chaos.range_scale(CO2, 200, 5000, 13, 17);
+// DEFINE IF THE PICTURE WILL HAVE REDUCED CLOUDS
+let centered_reduction = 1;
+if (CENTER && Math.floor(id % 2) == true) {
+    centered_reduction = 0.88;
+}
+// DEFINES NUMBER OF CIRCLES
+const ratio_clouds_ethanol = ((19.7 - stepSize)/3.35) * centered_reduction;
+const ratio_clouds_h2 = ((30.0 - stepSize)/14.1) * centered_reduction;
+
+// DRAWS eCO2 LINES - white lines on top
+const total_lines = chaos.range_scale(eCO2, 9000, 11000, 9000, 11000);
+// DRAWS eCO2 STARS - white characters on top
+const total_stars = chaos.range_scale(eCO2, 9000, 11000, 7000, 20000);
 
 
-// DEFINE STARTING DRAWING POSITION
-const CENTER = false;
+
 let posX, posY;
-if (CENTER === true) {
+if (CENTER) {
     posX = canvasWidth / 2;
     posY= canvasHeight / 2;
 } else {
     posX = chaos.random_range(canvasWidth);
     posY = chaos.random_range(canvasHeight);
 }
-
-// CO-DEFINES UNIQUE PATTERN (shuffels the deck to draw cards)
-let seed = Math.abs(breathData.data.rfid ^ breathData.data.hash);
-// I think this is broken with RFID?! though hash still works
-// please use breath.date_t instead of RFID anyways
 
 // Updates module vars
 chaos.seed = seed;
@@ -139,9 +106,13 @@ function _updateCursorPosition() {
     chaos.stepSize = stepSize;
 }
 
+let resourcesToPreload = {
+    logo: p5.loadImage('logo.png')
+}
 
-function sketch(p) {
+function sketch(p, preloaded) {
 
+    let logo = preloaded.logo;
     // Paints a random sized square once or twice
     function _draw_rnd_circle(max_size, bkg, color) {
         p.noStroke();
@@ -159,7 +130,7 @@ function sketch(p) {
         p.noStroke();
         p.fill(color);
         p.textSize(text_size);
-        let selChar = chaos.rand_char(char_set);
+        let selChar = char_set.length> 1 ? chaos.rand_char(char_set) : char_set
         p.text(selChar, posX, posY);
         if(color2){
             p.fill(color2);
@@ -172,10 +143,14 @@ function sketch(p) {
     }
 
     // Draw circles in a cloud pattern
-    function drawCloud(dataInput, ratio, dotMaxSize, firstColor, secondColor=undefined, stepIncrease=0, center=false) {
+    function drawCloud(dataInput, ratio, dotMaxSize, firstColor, secondColor=undefined, stepIncrease=0, center=false, faster= false) {
         stepSize += stepIncrease;
         for (let i = 0; i <= (dataInput) * ratio; i++) {
-            chaos.drunkard_walk(center);
+            if (faster) {
+                chaos.drunkard_walk_faster(center);
+            } else {
+                chaos.drunkard_walk(1, 1, center);
+            }
             _updateCursorPosition();
             _draw_rnd_circle(dotMaxSize, firstColor, secondColor);
         }
@@ -185,7 +160,7 @@ function sketch(p) {
     function drawGeometricalLines(dataInput, ratio, strokeWeight, strokeColor, lineMaxDistance=canvasWidth/2, stepSizeMultiX=1, stepSizeMultiY=1, center=false) {
         let matrix = [];
         for (let i = 0; i <= (dataInput) * ratio; i++) {
-            chaos.drunkard_walk_weighted(stepSizeMultiX, stepSizeMultiY, center);
+            chaos.drunkard_walk(stepSizeMultiX, stepSizeMultiY, center);
             _updateCursorPosition();
             matrix.push([posX, posY]);
             if (matrix.length > 2) {
@@ -202,11 +177,15 @@ function sketch(p) {
     }
 
     // Draws waves of sprayed characters with one or two colors
-    function drawCharacterSpray(ratioStars, dataInput, textSize, charSet, firstColor, secondColor, textSizeIncrement, center = false) {
+    function drawCharacterSpray(ratioStars, dataInput, textSize, charSet, firstColor, secondColor, textSizeIncrement, center = false, sparse = false) {
         for (let i = 0; i <= ratioStars; i++) {
-            chaos.drunkard_walk(center);
+            if (sparse) {
+                chaos.random_pos();
+            } else {
+                chaos.drunkard_walk(1,1, center);
+                p.rotate(dataInput);
+            }
             _updateCursorPosition();
-            p.rotate(dataInput);
             _draw_rnd_text(textSize, charSet, firstColor, secondColor, textSizeIncrement);
         }
         p.resetMatrix();
@@ -222,76 +201,63 @@ function sketch(p) {
 
     p.draw = function draw() {
 
-        // DEFINES NUMBER OF CIRCLES (breath.ETHANOL * ratio_clouds & breath.H2 * ratio_clouds)
-        //use input parameter (?) to dertermine ratio_clouds (output:1-5) (TVOC?)
-        const ratio_clouds = 3.5;
-        // DRAWS ETHANOL CLOUDS - colored circles "center"
-        let stepIncrease = -1;
         // ETHANOL CLOUD 001
-        drawCloud(breathData.data.breath.ethanol, ratio_clouds, 20, WHITE, RED_ETHANOL, stepIncrease, CENTER);
+        drawCloud(ethanol, ratio_clouds_ethanol, 20, WHITE, BOT, -1, CENTER, true);
         // ETHANOL CLOUD 002
-        drawCloud(breathData.data.breath.ethanol, ratio_clouds, 20, WHITE, RED_ETHANOL, stepIncrease, CENTER);
-        drawCloud(breathData.data.breath.ethanol, ratio_clouds, 20, WHITE, YELLOW, stepIncrease, CENTER);
+        drawCloud(ethanol, ratio_clouds_ethanol, 20, WHITE, BOT, -1, CENTER, true);
+        drawCloud(ethanol, ratio_clouds_ethanol, 20, WHITE, MS_04, -1, CENTER, true);
+
         // DRAWS H2 CLOUDS - colored circles "perimeter"
-        drawCloud(breathData.data.breath.h2, ratio_clouds, 20, WHITE, PINK1, stepIncrease, CENTER);
-        drawCloud(breathData.data.breath.h2, ratio_clouds, 20, WHITE, PINK, stepIncrease, CENTER);
-        drawCloud(breathData.data.breath.h2, ratio_clouds, 20, WHITE, VIOLET1, stepIncrease, CENTER);
-        drawCloud(breathData.data.breath.h2, ratio_clouds, 20, WHITE, PURPLE, stepIncrease, CENTER);
-        drawCloud(breathData.data.breath.h2, ratio_clouds, 20, WHITE, ROSA, 6, CENTER);
-        drawCloud(breathData.data.breath.h2, ratio_clouds, 20, WHITE, ORANGE_H2, 4, CENTER);
-
-        //DEFINES NUMBER OF WHITE LINES (breath.eCO2 * ratio_lines)
-        //use input parameter (?) to dertermine ratio_lines (output:1.9-2.3)
-        const ratio_lines = 2.2;
-        //possibly introduce variable for white lines alpha channel
-
-        p.resetMatrix();
-        stepSize = 15;
-        chaos.stepSize = stepSize;
-        posX = chaos.random_range(canvasWidth);
-        posY = chaos.random_range(canvasHeight);
-        chaos.posX = posX;
-        chaos.posY = posY;
+        drawCloud(h2, ratio_clouds_h2, 20, WHITE, MS_05, -1, CENTER);
+        drawCloud(h2, ratio_clouds_h2, 20, WHITE, MS_03, -1, CENTER);
+        drawCloud(h2, ratio_clouds_h2, 20, WHITE, MS_06, -1, CENTER);
+        drawCloud(h2, ratio_clouds_h2, 20, WHITE, MS_01, -1, CENTER);
+        drawCloud(h2, ratio_clouds_h2, 20, WHITE, MS_02, 6, CENTER);
+        drawCloud(h2, ratio_clouds_h2, 20, WHITE, TOP, 3.5, CENTER);
 
         // DRAWS eCO2 LINES - white lines on top
-        drawGeometricalLines(breathData.data.breath.eCO2, (1/64*ratio_lines), 1.5, WHITE3, 800, 8, 8);
+        drawGeometricalLines(total_lines, 1/64, 1.5, WHITE3, 500, 8, 8);
         // DRAWS eCO2 LINES - white lines on top
-        drawGeometricalLines(breathData.data.breath.eCO2, (1/8*ratio_lines), 1, WHITE2, 800, 4, 4);
+        drawGeometricalLines(total_lines, 1/8, 1, WHITE2, 500, 4, 4);
         // DRAWS eCO2 LINES - white lines on top
-        drawGeometricalLines(breathData.data.breath.eCO2, (1/32*ratio_lines), 1, WHITE2, 800, 2, 2);
+        drawGeometricalLines(total_lines, 1/32, 1, WHITE2, 500, 2, 2);
         // DRAWS eCO2 LINES - white lines on top
-        drawGeometricalLines(breathData.data.breath.eCO2, (1/32*ratio_lines), 1, WHITE2, 800, 1, 1);
+        drawGeometricalLines(total_lines, 1/32, 1, WHITE2, 500, 1, 1);
 
-        stepSize = 20;
-        chaos.stepSize = stepSize;
-        //use input parameter (?) to dertermine ratio_stars (output:2-6)
-        const ratioStars = 4 * breathData.data.breath.eCO2;
+
 
         // DRAWS eCO2 SPRAYS - white stars & tail (breath.eCO2) * ratio_stars
-        drawCharacterSpray(ratioStars, breathData.data.breath.hum, 20, alphabet, WHITE1, WHITE2, 2);
+        drawCharacterSpray(total_stars, humidity, 20, alphabet, WHITE1, WHITE2, 2);
+        p.resetMatrix();
+        drawCharacterSpray(total_stars*0.02, humidity, 14 , selected_char, WHITE1, WHITE2, 2,);
+        p.resetMatrix();
+        drawCharacterSpray(chaos.random_range(6), humidity, 10 , "φ", WHITE1, WHITE2, 2, false, true);
 
-        // posX = 500;
-        // posY = 500;
         // // DRAWS LOPHI LOGO
-        // // p.textAlign(p.RIGHT, p.BOTTOM);
-        // p.noStroke();
-        // p.fill('rgba(255,255,255, 1)');
-        // //textFont(use something which is similarly thin to white lines or check with design guidelines?!);
-        // p.textSize(100);
-        // p.text("Lo⁺φ Breath For Sale #" + breath.data.hash, 3200, 1200);
+        p.noStroke();
 
+        p.fill('rgba(255,255,255, 1)');
+        // // //textFont(use something which is similarly thin to white lines or check with design guidelines?!);
+        p.textSize(17);
+        // p.textStyle(p.BOLD);
+        // p.blendMode(p.DIFFERENCE);
+        p.image(logo, canvasWidth-189, canvasHeight-54, 143, 11);
 
         p5Instance.saveCanvas(canvas, imageFilePath, 'png').then(f => {
             let message = {"success": true, "path": f};
             console.log(JSON.stringify(message));
+            // console.timeEnd("total");
             process.exit(0);
         }).catch((err) => {
             let message = {"success": false, "error": err.message};
             console.log(JSON.stringify(message));
+            // console.timeEnd("total");
             process.exit(1);
         });
     };
 }
 
-let p5Instance = p5.createSketch(sketch);
+
+// console.time("total");
+let p5Instance = p5.createSketch(sketch, resourcesToPreload);
 

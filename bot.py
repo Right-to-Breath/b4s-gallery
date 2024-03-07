@@ -11,7 +11,11 @@ from telegram.error import BadRequest
 
 from lib import storage
 from lib.simulator import json_publisher
-from env import TOPICS, MQTT_BROKER, CREDENTIALS, STATE_PATH, ERROR_STORAGE, URL_STORAGE, TELEGRAM_BOT_TOKEN
+from env import TOPICS, MQTT_BROKER, CREDENTIALS, STATE_PATH
+
+ERROR_STORAGE = "./error_users.pkl"
+URL_STORAGE = "./url_users.pkl"
+TELEGRAM_BOT_TOKEN = "5319524868:AAHf1EsmAlulnf23h_bSWoiXVb7O0YZLt4k"
 
 storage.init(STATE_PATH)
 storage.init(ERROR_STORAGE, {})

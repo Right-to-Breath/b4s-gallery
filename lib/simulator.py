@@ -21,29 +21,29 @@ BANNER = "[SIMULATOR]"
 
 def gen_breath_sample():
     data_sample = {
-        "rfid": random.randbytes(4).hex(),
+        "rfid": hex(random.getrandbits(8*4)),
        "date_t": "2022-27-03T19:26:57",
         "coord": {
-            "latitude": random.randrange(-90, 90),
-            "longitude": random.randrange(-180, 180),
+            "latitude": "{}    ".format(random.randrange(-90000000, 90000000)/1000000),
+            "longitude": "{}    ".format(random.randrange(-90000000, 90000000)/1000000),
     },
        "ref1": {
             # random.normalvariate(mu, sigma)
-           "CO2": random.randrange(300, 450), # 400 300-5000
-           "eCO2": random.randrange(300, 450), # 400 300-14000
-           "tvoc": random.randrange(0, 50), # 0 0-2000
-           "ethanol": random.randrange(16100, 17000), # 18666 16000-20000
-           "h2": random.randrange(12000, 14000), # 13626 10000-14000
-           "temp": float(random.randrange(1700, 2800)/100), # 24 -5.00-50.00
-           "hum": float(random.randrange(1700, 2800)/100)}, # 31 20-100
+           "CO2": "{}".format(random.randrange(300, 450)), # 400 300-5000
+           "eCO2": "{}".format(random.randrange(300, 450)), # 400 300-14000
+           "tvoc": "{}".format(random.randrange(0, 50)), # 0 0-2000
+           "ethanol": "{}".format(random.randrange(16100, 17000)), # 18666 16000-20000
+           "h2": "{}".format(random.randrange(12000, 14000)), # 13626 10000-14000
+           "temp": "{}".format(random.randrange(1700, 2800)/100), # 24 -5.00-50.00
+           "hum": "{}".format(random.randrange(1700, 2800)/100)}, # 31 20-100
        "breath": {
-           "CO2": random.randrange(1200, 5000),  # 400 300-5000
-           "eCO2": random.randrange(8000, 14000),  # 400 300-14000
-           "tvoc": random.randrange(100, 300),  # 0 0-2000
-           "ethanol": random.randrange(17000, 20000),  # 18666 16000-20000
-           "h2": random.randrange(11000, 14000),  # 13626 10000-14000
-           "temp": float(random.randrange(2400, 3700) / 100),  # 24 -5.00-50.00
-           "hum": float(random.randrange(4100, 10000) / 100),  # 31 20-100
+           "CO2": "{}".format(random.randrange(1200, 5000)),  # 400 300-5000
+           "eCO2": "{}".format(random.randrange(8000, 14000)),  # 400 300-14000
+           "tvoc": "{}".format(random.randrange(100, 300)),  # 0 0-2000
+           "ethanol": "{}".format(random.randrange(17000, 20000)),  # 18666 16000-20000
+           "h2": "{}".format(random.randrange(11000, 14000)),  # 13626 10000-14000
+           "temp": "{}".format(random.randrange(2400, 3700) / 100),  # 24 -5.00-50.00
+           "hum": "{}".format(random.randrange(4100, 10000) / 100),  # 31 20-100
        }
     }
     crc32hash = hex(zlib.crc32(json.dumps(data_sample).encode()))
